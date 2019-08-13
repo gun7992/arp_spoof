@@ -42,7 +42,7 @@ void get_my_mac(uint8_t* smac, char* iface)
      for(int i=0; i<6; i++) smac[i] = mac[i];
 }
 
-u_char* make_arp(int opcode, uint8_t* source_mac, uint8_t* destination_mac, uint8_t* sender_mac, uint8_t* sender_ip, uint8_t* target_mac, uint32_t* target_ip)
+u_char* make_arp(int opcode, uint8_t* source_mac, uint8_t* destination_mac, uint8_t* sender_mac, uint32_t* sender_ip, uint8_t* target_mac, uint32_t* target_ip)
 {
      u_char* packet = (u_char*)malloc(128);
      struct ethernet_hdr eth;
@@ -58,8 +58,8 @@ u_char* make_arp(int opcode, uint8_t* source_mac, uint8_t* destination_mac, uint
 
      for(i = 0; i < 4; i++)
      {
-          arr_sender_ip[i] = sender_ip >> (24 - 8 * i);
-          arr_target_ip[i] = target_ip >> (24 - 8 * i);
+          arr_sender_ip[i] = (uint8_t)(*sender_ip >> (24 - 8 * i));
+          arr_target_ip[i] = (uint8_t)(*target_ip >> (24 - 8 * i));
      }
 
      for(i = 0; i < 4; i++)
