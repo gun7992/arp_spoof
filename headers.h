@@ -7,9 +7,9 @@
 struct session
 {
     uint8_t sender_mac[6];
-    uint32_t sender_ip;
+    uint8_t sender_ip[4];
     uint8_t target_mac[6];
-    uint32_t target_ip;
+    uint8_t target_ip[4];
 };
 
 struct ethernet_hdr
@@ -27,9 +27,9 @@ struct arp_hdr
     uint8_t P_add_len;
     uint16_t Opcode;
     uint8_t S_hardware_addr[ETHER_MAC_SIZE];
-    uint8_t S_protocol_addr[ETHER_PROTO_SIZE];
+    uint8_t S_protocol_addr[4];
     uint8_t T_hardware_addr[ETHER_MAC_SIZE];
-    uint8_t T_protocol_addr[ETHER_PROTO_SIZE];
+    uint8_t T_protocol_addr[4];
 };
 
 struct ip_hdr
@@ -42,9 +42,6 @@ struct ip_hdr
     uint8_t time_to_live;
     uint8_t protocol;
     uint16_t checksum;
-    uint32_t S_ip;
-    uint32_t D_ip;
+    uint8_t S_ip[4];
+    uint8_t D_ip[4];
 };
-
-
-

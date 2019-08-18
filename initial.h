@@ -21,7 +21,7 @@
 #define RARP_REQ    0x0003
 #define RARP_RES    0x0004
 
-
+//done.
 void get_my_mac(uint8_t* smac, char* iface)
 {
      int fd;
@@ -41,32 +41,20 @@ void get_my_mac(uint8_t* smac, char* iface)
      mac = (char *)ifr.ifr_hwaddr.sa_data;
      for(int i=0; i<6; i++) smac[i] = mac[i];
 }
-
-u_char* make_arp(int opcode, uint8_t* source_mac, uint8_t* destination_mac, uint8_t* sender_mac, uint32_t* sender_ip, uint8_t* target_mac, uint32_t* target_ip)
+//done.
+u_char* make_arp(int opcode, uint8_t* source_mac, uint8_t* destination_mac, uint8_t* sender_mac, uint8_t* sender_ip, uint8_t* target_mac, uint8_t* target_ip)
 {
-     u_char* packet = (u_char*)malloc(128);
+     u_char* packet = (u_char*)malloc(42);
      struct ethernet_hdr eth;
      struct arp_hdr arp;
-     int i = 0;
      memcpy(eth.ether_dmac, destination_mac,6);
      memcpy(eth.ether_smac, source_mac, 6);
      memcpy(arp.S_hardware_addr, sender_mac, 6);
      memcpy(arp.T_hardware_addr, target_mac, 6);
 
-     uint8_t arr_sender_ip[4];
-     uint8_t arr_target_ip[4];
+     memcpy(arp.S_protocol_addr, sender_ip, 4);
+     memcpy(arp.T_protocol_addr, target_ip, 4);
 
-     for(i = 0; i < 4; i++)
-     {
-          arr_sender_ip[i] = (uint8_t)(*sender_ip >> (24 - 8 * i));
-          arr_target_ip[i] = (uint8_t)(*target_ip >> (24 - 8 * i));
-     }
-
-     for(i = 0; i < 4; i++)
-     {
-         arp.S_protocol_addr[i] = arr_sender_ip[i];
-         arp.T_protocol_addr[i] = arr_target_ip[i];
-     }
      arp.Opcode = htons(opcode);
      eth.ether_type = htons(0x0806);
      arp.hardware_type = htons(0x0001);
@@ -81,15 +69,12 @@ u_char* make_arp(int opcode, uint8_t* source_mac, uint8_t* destination_mac, uint
 }
 
 
-void ip_retype(char* str_ip, uint32_t* int_ip)
+void ip_retype(char* str_ip, uint8_t* int_ip)
 {
      char *cp = strtok(str_ip, ".");
-     uint32_t tmp;
      for(int i = 0; cp; i++)
      {
-          tmp = atoi(cp);
-          int_ip += tmp << (24 - (8 * i));
+          int_ip[i] = atoi(cp);
           cp = strtok(NULL, ".");
      }
 }
-
