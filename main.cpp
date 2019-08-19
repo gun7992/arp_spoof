@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
         struct ethernet_hdr* eth = (struct ethernet_hdr*)malloc(14);
         eth = (struct ethernet_hdr*)packet;
 
-        if(eth -> ether_type == 0x8000)
+        if(eth -> ether_type == 0x0080)
         {
             printf("spoofed ip packet arrived!\n");
             struct ip_hdr* ip = (struct ip_hdr*)malloc(20);
